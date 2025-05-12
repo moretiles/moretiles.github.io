@@ -3,6 +3,10 @@ body {
     display: flex;
     flex-direction: column;
     color: white;
+    padding: 0;
+    max-width: 60.0em;
+    width: 800px;
+    margin: auto;
 }
 
 a {
@@ -21,6 +25,14 @@ body footer {
     order: 3;
 }
 
+body main p {
+    font-size: 1.4em;
+}
+
+body main h1, h2, h3, h4, h5, h6 {
+    text-decoration: underline;
+}
+
 #global-navigation {
     background: rgba(192, 192, 192);
     display: flex;
@@ -31,6 +43,8 @@ body footer {
     margin-right: auto;
     display: flex;
     gap: 30px;
+    margin-left: 0.5em;
+    align-self: center;
 }
 
 #global-navigation .external-links {
@@ -49,4 +63,8 @@ body footer {
 .icon {
     width: 30px;
     height: 30px;
+}
+
+code.language-go {
+    font-size: 12pt;
 }
