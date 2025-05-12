@@ -1,0 +1,6 @@
+vscode _ /workspaces (dev) $ go run src/meta/articles/1/funcmap2.go
+greetings:
+  - Happy
+  - birthday
+  - to
+  - you

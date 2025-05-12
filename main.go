@@ -37,6 +37,31 @@ func max(a int, b int) int {
 
 func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 	var funcs template.FuncMap = map[string]interface{}{}
+	funcs["fOpen"] = func(filename string) string {
+		bytes, err := os.ReadFile(filename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		str := string(bytes)
+		return str
+	}
+	funcs["code"] = func(text string) string {
+		split := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+		if len(split) <= 2 {
+			return text
+		}
+
+		f := func(c rune) bool {
+			return c != ' '
+		}
+		offset := strings.IndexFunc(split[1], f)
+
+		var out []string
+		for _, e := range split[1:len(split)] {
+			out = append(out, e[offset:])
+		}
+		return strings.Join(out[0:len(split)-1], "\n")
+	}
 	funcs["include"] = func(name string, data interface{}, times int) (template.HTML, error) {
 		indent := "\r\n" + strings.Repeat(" ", times)
 		buf := bytes.NewBuffer(nil)

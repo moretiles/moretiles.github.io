@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>test</title>
         <link rel="stylesheet" href="/css/style.css">
         <link rel="stylesheet" href="/css/prism.css">
@@ -9,11 +10,118 @@
     <body id="test">
         <script src="/js/prism.js"></script>
         <main>
-            <pre><code class="language-go">
-func main () {
-  fmt.Println("hello world")
+
+            <h1>The Power of Go Templates</h1>
+            <p>Like many problems, it began with indentation.</p>
+            <p>I had decided to create a static site and wanted to try out the templating system in Golang. Immediately, I hit a brick wall. How do I create my own functions to process text? The answer ended up being simple.</p>
+
+			<br>
+
+            <h2>Templates and the Func Map</h2>
+            <p>The standard library offers templating through <a href="https://pkg.go.dev/text/template">text/template</a> with some solid features. If you're trying to do anything more complicated than directly inserting variables or including sections other template files you'll need to create a <a href="https://pkg.go.dev/text/template#Template.Funcs">template.FuncMap</a>.</p>
+            <p>In the below code I create a new function map, add a function to that map to remove leading spaces from multi-line strings, define the text of the template, and then execute.
+            <pre><code class="language-go">package main
+
+import (
+	&#34;html/template&#34;
+	&#34;log&#34;
+	&#34;os&#34;
+	&#34;strings&#34;
+)
+
+func main() {
+	var myMap template.FuncMap = map[string]interface{}{}
+	myMap[&#34;stripLeading&#34;] = func(text string) string {
+		split := strings.Split(strings.ReplaceAll(text, &#34;\r\n&#34;, &#34;\n&#34;), &#34;\n&#34;)
+
+		f := func(c rune) bool { return c != &#39; &#39; }
+		var out []string
+		for _, e := range split {
+			offset := strings.IndexFunc(e, f)
+			out = append(out, e[offset:])
+		}
+		return strings.Join(out, &#34;\n&#34;) &#43; &#34;\n&#34;
+	}
+
+	text := `{{ stripLeading &#34;Happy\n      birthday\n    to\n  you&#34; }}`
+	tmpl, err := template.New(&#34;birthday&#34;).Funcs(myMap).Parse(text)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tmpl.ExecuteTemplate(os.Stdout, &#34;birthday&#34;, nil)
 }
-            </code></pre>
+</code></pre>
+            <pre><code class="language-shell-session">vscode _ /workspaces (dev) $ go run src/meta/articles/1/funcmap1.go
+Happy
+birthday
+to
+you
+</code></pre>
+            <p>There is a bit of a learning curve but it works well.</p>
+
+			<br>
+        
+            <h2>Using outside state</h2>
+            <p>An issue I ran into while creating functions for my templates was that they depended on outside state and it would be annoying or impossible to actually pass that outside state when making a function call within the template. I first tried constructing a "god" object but realized that was inflexible, so I moved to a more functional approach.</p>
+            <p>In the below code I create function to return a new function map, add a function that behaves like the default template function however indents every line after the first 'n' spaces, define the text of two templates, parse them, and then execute them.
+            <pre><code class="language-go">package main
+
+import (
+	&#34;bytes&#34;
+	&#34;html/template&#34;
+	&#34;log&#34;
+	&#34;os&#34;
+	&#34;strings&#34;
+)
+
+func myMap(tmpl **template.Template) template.FuncMap {
+	var funcs template.FuncMap = map[string]interface{}{}
+	funcs[&#34;include&#34;] = func(name string, data interface{}, times int) (string, error) {
+		indent := &#34;\n&#34; &#43; strings.Repeat(&#34; &#34;, times)
+		buf := bytes.NewBuffer(nil)
+		err := (*tmpl).ExecuteTemplate(buf, name, data)
+		if err != nil {
+			log.Fatal(err)
+		}
+		str := buf.String()
+		str = strings.Trim(str, &#34;\n&#34;)
+		split := strings.Split(strings.ReplaceAll(str, &#34;\r\n&#34;, &#34;\n&#34;), &#34;\n&#34;)
+		str = strings.Join(split, indent) &#43; &#34;\n&#34;
+		return str, nil
+	}
+	return funcs
+}
+
+func main() {
+	included := `{{ define &#34;happy&#34; }}
+greetings:
+- Happy
+- birthday
+- to
+- you
+{{ end }}`
+	text := `{{ include &#34;happy&#34; nil 2 }}`
+	tmpl := template.New(&#34;birthday&#34;)
+	tmpl = tmpl.Funcs(myMap(&amp;tmpl))
+	tmpl, err := tmpl.Parse(included)
+	tmpl, err = tmpl.Parse(text)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tmpl.Execute(os.Stdout, nil)
+}
+</code></pre>
+            <pre><code class="language-shell-session">vscode _ /workspaces (dev) $ go run src/meta/articles/1/funcmap2.go
+greetings:
+  - Happy
+  - birthday
+  - to
+  - you
+</code></pre>
+
+			<br>
+
+            <p>I was surprised by how much you can do to extend Go templates and that there was little in the way of clear examples online. Hope this was interesting or helped.</p>
         </main>
         
         <header>
