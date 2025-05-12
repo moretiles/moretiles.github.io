@@ -1,0 +1,11 @@
+{
+    "name": "dank-json",
+    "dockerComposeFile": "compose.yml",
+    "init": true,
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/",
+    "features": {
+        "./features/baseline": {},
+        "./features/required": {}
+    }
+}

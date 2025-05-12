@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>test</title>
+        <link rel="stylesheet" href="/css/style.css">
+        <link rel="stylesheet" href="/css/prism.css">
+    </head>
+    <body id="test">
+        <script src="/js/prism.js"></script>
+        <main>
+            <pre><code class="language-go">
+func main () {
+  fmt.Println("hello world")
+}
+            </code></pre>
+        </main>
+        {{ include "header" nil 8 }}
+        {{ include "footer" nil 8 }}
+    </body>
+</html>

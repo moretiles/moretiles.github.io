@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>moretiles</title>
+        <link rel="stylesheet" href="/css/style.css">
+    </head>
+    <body id="projects-page">
+        <main>
+            <h1>My Projects</h1>
+            <dl id="project-table">
+                <dt><a href="https://github.com/moretiles/qoifde">qoifde</a></dt>
+                <dd>Encoder and decoder that can perform basic operations on <abbr title="Quite Okay Image Format">QOIF</abbr> images. Conversion to and from raw RGB/RGBA is possible. Was pleasently simple to implement. I have no connection to the format creators. if you are interested in learning more about the format see their <a href="https://qoiformat.org/">website</a>.</dd>
+                <dt><a href="https://github.com/moretiles/dank_json">dank_json</a></dt>
+                <dd>Yet another library for working with JSON in C... what makes this one special? The programmer is not required to call malloc and free on the nodes they create because all allocation is done behind the scenes. The lifetimes of nodes can be terminated on a per-node, per-file, or whole world basis. Accessing nodes is done using execl and execv functions calls. Try it out.</dd>
+                <dt><a href="https://github.com/moretiles/podmen">podmen</a></dt>
+                <dd>Most of my homelab configs and infrastructure as code files are available publicly. Sensitive details are redacted. Might be a useful reference. After actually setting up a good system for managing certificates I feel more inclined to to look into the idea of data encryption at the network level instead (at least for internal networks that can't receive certificates from LetsEncrypt and friends).</dd>
+            </dl>
+        </main>
+        
+        <header>
+            <nav id="global-navigation">
+                <section class="internal-links">
+                    <a href="/index.html" class="nav-link">Home</a>
+                    <a href="/articles.html" class="nav-link">Articles</a>
+                    <a href="/projects.html" class="nav-link">Projects</a>
+                    <a href="/about.html" class="nav-link">About</a>
+                </section>
+                <section class="external-links">
+                    <a href="https://github.com/moretiles"><img src="/icon/github-mark.svg" alt="Github logo" class="icon"></a>
+                    <a href="https://github.com/moretiles"><img src="/icon/LI-In-Bug.png" alt="Linkedin logo" class="icon"></a>
+                </section>
+            </nav>
+        </header>
+        
+        
+        <footer>
+            <p>&#169; 2025 David Vergano</p>
+        </footer>
+        
+    </body>
+</html>
