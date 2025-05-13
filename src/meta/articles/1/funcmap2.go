@@ -10,7 +10,8 @@ import (
 
 func myMap(tmpl **template.Template) template.FuncMap {
 	var funcs template.FuncMap = map[string]interface{}{}
-	funcs["include"] = func(name string, data interface{}, times int) (string, error) {
+	funcs["include"] = func(name string, data interface{},
+		times int) (string, error) {
 		indent := "\n" + strings.Repeat(" ", times)
 		buf := bytes.NewBuffer(nil)
 		err := (*tmpl).ExecuteTemplate(buf, name, data)

@@ -18,7 +18,7 @@
 			<br>
 
             <h2>Templates and the Func Map</h2>
-            <p>The standard library offers templating through <a href="https://pkg.go.dev/text/template">text/template</a> with some solid features. If you're trying to do anything more complicated than directly inserting variables or including sections other template files you'll need to create a <a href="https://pkg.go.dev/text/template#Template.Funcs">template.FuncMap</a>.</p>
+            <p>The standard library offers templating through <a href="https://pkg.go.dev/text/template">text/template</a> with some solid features. If you're trying to do anything more complicated than directly inserting variables or including sections of other template files you'll need to create a <a href="https://pkg.go.dev/text/template#Template.Funcs">template.FuncMap</a>.</p>
             <p>In the below code I create a new function map, add a function to that map to remove leading spaces from multi-line strings, define the text of the template, and then execute.
             <pre><code class="language-go">package main
 
@@ -63,7 +63,7 @@ you
         
             <h2>Using outside state</h2>
             <p>An issue I ran into while creating functions for my templates was that they depended on outside state and it would be annoying or impossible to actually pass that outside state when making a function call within the template. I first tried constructing a "god" object but realized that was inflexible, so I moved to a more functional approach.</p>
-            <p>In the below code I create function to return a new function map, add a function that behaves like the default template function however indents every line after the first 'n' spaces, define the text of two templates, parse them, and then execute them.
+            <p>In the below code I create a function to return a new function map, add a function that behaves like the default template function however indents every line after the first n spaces, define the text of two templates, parse them, and then execute them.
             <pre><code class="language-go">package main
 
 import (
@@ -76,7 +76,8 @@ import (
 
 func myMap(tmpl **template.Template) template.FuncMap {
 	var funcs template.FuncMap = map[string]interface{}{}
-	funcs[&#34;include&#34;] = func(name string, data interface{}, times int) (string, error) {
+	funcs[&#34;include&#34;] = func(name string, data interface{},
+		times int) (string, error) {
 		indent := &#34;\n&#34; &#43; strings.Repeat(&#34; &#34;, times)
 		buf := bytes.NewBuffer(nil)
 		err := (*tmpl).ExecuteTemplate(buf, name, data)
