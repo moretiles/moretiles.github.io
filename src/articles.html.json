@@ -1,4 +1,8 @@
 {
-    "1-title": "The Power of Go Templates",
-    "1-preview": ""
+    "Go_Templates": {
+        "title": "The Power of Go Templates",
+        "link": "/articles/the-power-of-go-templates.html",
+        "description": "Extending the behavior of Go Templates by creating new functions that can be called from within templates.",
+        "time": "1747401715"
+    }
 }
