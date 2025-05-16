@@ -1,12 +1,17 @@
 <!doctype html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8">
+        {{ include "head" nil 8 }}
         <title>moretiles</title>
-        <link rel="stylesheet" href="/css/style.css">
     </head>
-    <body id="_">
+    <body id="articles">
         <main>
+            <h1>Articles</h1>
+            <ul>
+            {{ range $k, $v := . }}
+            <a href="{{ $v.link }}">{{ $v.title }}</a>
+            {{ end }}
+            </ul>
         </main>
         {{ include "header" nil 8 }}
         {{ include "footer" nil 8 }}

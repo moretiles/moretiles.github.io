@@ -185,7 +185,7 @@ func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 
 func buildFiles(tmpl **template.Template, build data) {
 	wants := build.BuildWants
-	var context map[string]string
+	var context map[string]map[string]string
 
 	for in, files := range build.BuildTemplates {
 		split := strings.Split(in, `.`)
@@ -210,6 +210,7 @@ func buildFiles(tmpl **template.Template, build data) {
 			}
 			err = json.Unmarshal(content, &context)
 			if err != nil {
+				log.Printf("%s\n", string(content))
 				log.Fatal(err)
 			}
 		} else {

@@ -1,14 +1,14 @@
 {
     "SourceDir": "src",
     "OutputDir": "docs",
-    "BuildWants": ["header.html.tmpl", "footer.html.tmpl"],
+    "BuildWants": ["header.html.tmpl", "footer.html.tmpl", "head.html.tmpl"],
     "BuildTemplates": {
         "index.html.tmpl": [],
         "about.html.tmpl": [],
         "projects.html.tmpl": [],
         "articles.html.tmpl": []
     },
-    "BuildDirWants": ["header.html.tmpl", "footer.html.tmpl"],
+    "BuildDirWants": ["header.html.tmpl", "footer.html.tmpl", "head.html.tmpl"],
     "BuildDirTemplates": {
         "articles": {
         }

@@ -3,7 +3,8 @@ body {
     display: flex;
     flex-direction: column;
     color: white;
-    padding: 0;
+    padding-right: 0.5em;
+    padding-left: 0.5em;
     max-width: 60.0em;
     width: 900px;
     margin: auto;
@@ -11,6 +12,14 @@ body {
 
 a {
     color: rgba(51, 135, 120);
+}
+
+#global-navigation a {
+    font-size: 1.4em;
+}
+
+#articles a {
+    font-size: 1.4em;
 }
 
 body header {
@@ -30,7 +39,7 @@ body main p {
 }
 
 body main h1, h2, h3, h4, h5, h6 {
-    text-decoration: underline;
+    color: rgba(192, 192, 192);
 }
 
 #global-navigation {
@@ -56,7 +65,6 @@ body main h1, h2, h3, h4, h5, h6 {
 #global-navigation a {
     text-decoration: none;
     color: rgba(128,0,32);
-    font-size: 20px;
     font-weight: bold;
 }
 
@@ -67,4 +75,24 @@ body main h1, h2, h3, h4, h5, h6 {
 
 code.language-go {
     font-size: 12pt;
+}
+
+#featured-articles h3 {
+    font-size: 1.4em;
+}
+
+#featured-articles p {
+    font-size: 1.2em;
+}
+
+#featured-articles a {
+    display: block;
+    text-align: center;
+    font-size: 1.4em;
+}
+
+hr {
+    margin-top: 3em;
+    border: 3px dotted orange;
+    margin-bottom: 3em;
 }
