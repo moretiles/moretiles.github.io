@@ -15,11 +15,11 @@ a {
 }
 
 #global-navigation a {
-    font-size: 1.4em;
+    font-size: 1.2em;
 }
 
 #articles a {
-    font-size: 1.4em;
+    font-size: 1.2em;
 }
 
 body header {
@@ -35,7 +35,7 @@ body footer {
 }
 
 body main p {
-    font-size: 1.4em;
+    font-size: 1.2em;
 }
 
 body main h1, h2, h3, h4, h5, h6 {
@@ -68,27 +68,23 @@ body main h1, h2, h3, h4, h5, h6 {
     font-weight: bold;
 }
 
+#global-navigation a:hover {
+    color: rgba(51, 135, 120);
+}
+
 .icon {
     width: 30px;
     height: 30px;
 }
 
 code.language-go {
-    font-size: 12pt;
-}
-
-#featured-articles h3 {
-    font-size: 1.4em;
-}
-
-#featured-articles p {
-    font-size: 1.2em;
+    font-size: 10pt;
 }
 
 #featured-articles a {
     display: block;
     text-align: center;
-    font-size: 1.4em;
+    font-size: 1.2em;
 }
 
 hr {

@@ -1,0 +1,7 @@
+# golang for the language itself
+# tmux for multiplexing
+# sudo in case we need root
+
+FROM docker.io/archlinux/archlinux
+RUN pacman -Syyu --noconfirm go tmux sudo && groupadd -g 1000 dev && useradd -u 1000 -g dev -m dev && (tee -a /etc/sudoers <<< 'dev ALL=(ALL:ALL) NOPASSWD: ALL')
+USER dev

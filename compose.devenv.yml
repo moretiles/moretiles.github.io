@@ -1,0 +1,17 @@
+"services":
+  "moretiles.github.io":
+    "container_name": "moretiles.github.io"
+    "build":
+      "context": "."
+      "dockerfile": "Dockerfile.devenv"
+    "volumes": 
+      - ".:/devenv"
+    "command": "sleep 99999d"
+    "working_dir": "/devenv"
+  "apache":
+    "container_name": "apache.moretiles.github.io"
+    "image": "docker.io/ubuntu/apache2"
+    "ports":
+      - "127.0.0.1:80:80"
+    "volumes":
+      - "./docs:/var/www/html"
