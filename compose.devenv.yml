@@ -12,6 +12,6 @@
     "container_name": "apache.moretiles.github.io"
     "image": "docker.io/ubuntu/apache2"
     "ports":
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:8080:80"
     "volumes":
       - "./docs:/var/www/html"
