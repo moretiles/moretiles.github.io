@@ -1,8 +1,14 @@
 {
     "Go_Templates": {
         "title": "The Power of Go Templates",
-        "link": "/articles/the-power-of-go-templates.html",
-        "description": "Extending the behavior of Go Templates by creating new functions that can be called from within templates.",
-        "time": "1747401715"
-    }
+            "link": "/articles/the-power-of-go-templates.html",
+            "description": "Extending the behavior of Go Templates by creating new functions that can be called from within templates.",
+            "time": "1747401715"
+    },
+        "Getting_More_from_Tab_Completion": {
+            "title": "Getting More from Tab Completion",
+            "link": "/articles/getting-more-from-tab-completion.html",
+            "description": "The ? operator in the IOS shell makes me wish more experimentation was done with shortcuts that provide information.",
+            "time": "1761945083"
+        }
 }

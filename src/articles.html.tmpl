@@ -2,14 +2,14 @@
 <html lang="en">
     <head>
         {{ include "head" nil 8 }}
-        <title>moretiles</title>
+        <title>Articles</title>
     </head>
     <body id="articles">
         <main>
             <h1>Articles</h1>
             <ul>
             {{ range $k, $v := . }}
-            <a href="{{ $v.link }}">{{ $v.title }}</a>
+            <p><a href="{{ $v.link }}">{{ $v.title }}</a></p>
             {{ end }}
             </ul>
         </main>
