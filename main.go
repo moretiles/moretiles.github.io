@@ -37,30 +37,13 @@ func max(a int, b int) int {
 
 func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 	var funcs template.FuncMap = map[string]interface{}{}
-	funcs["fOpen"] = func(filename string) string {
+	funcs["fopen"] = func(filename string) string {
 		bytes, err := os.ReadFile(filename)
 		if err != nil {
 			log.Fatal(err)
 		}
 		str := string(bytes)
 		return str
-	}
-	funcs["code"] = func(text string) string {
-		split := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
-		if len(split) <= 2 {
-			return text
-		}
-
-		f := func(c rune) bool {
-			return c != ' '
-		}
-		offset := strings.IndexFunc(split[1], f)
-
-		var out []string
-		for _, e := range split[1:len(split)] {
-			out = append(out, e[offset:])
-		}
-		return strings.Join(out[0:len(split)-1], "\n")
 	}
 	funcs["include"] = func(name string, data interface{}, times int) (template.HTML, error) {
 		indent := "\r\n" + strings.Repeat(" ", times)
@@ -78,107 +61,6 @@ func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 			Therefore when include consumes a template relevent content should already be escaped.
 		*/
 		return template.HTML(str), nil
-	}
-	funcs["previews"] = func(name string, data map[string]string, include int, times int) (template.HTML, error) {
-		var pos int = 0
-		var i int = 0
-		for {
-			pos += 1
-			titleString := fmt.Sprintf("%d-title", pos)
-			previewString := fmt.Sprintf("%d-preview", pos)
-			_, exists1 := data[titleString]
-			_, exists2 := data[previewString]
-			if exists1 != true || exists2 != true {
-				break
-			}
-		}
-
-		var out template.HTML
-
-		for {
-			i += 1
-			if pos-i >= max(pos-include, 0) {
-				break
-			}
-
-			titleString := fmt.Sprintf("%d-title", pos-i)
-			previewString := fmt.Sprintf("%d-preview", pos-i)
-			title, exists1 := data[titleString]
-			preview, exists2 := data[previewString]
-			_, _ = title, preview
-
-			if exists1 == false || exists2 == false {
-				break
-			}
-
-			buf := bytes.NewBuffer(nil)
-			var data map[string]string
-			data["title"] = title
-			data["preview"] = preview
-			indent := "\r\n" + strings.Repeat(" ", times)
-			str := buf.String()
-			split := strings.Split(strings.ReplaceAll(str, "\r\n", "\n"), "\n")
-			str = strings.Join(split, indent)
-			err := (*tmpl).ExecuteTemplate(buf, name, data)
-			if err != nil {
-				log.Fatal(err)
-			}
-			/*
-				We trust that the evaluated template to be HTML.
-				All child templates must ensure they escape text.
-				Therefore when include consumes a template relevent content should already be escaped.
-			*/
-			out += "\r\n" + template.HTML(str)
-		}
-		return out, nil
-	}
-	funcs["links"] = func(name string, data map[string]string, times int) (template.HTML, error) {
-		var pos int = 0
-		var i int = 0
-		for {
-			pos += 1
-			titleString := fmt.Sprintf("%d-title", pos)
-			_, exists := data[titleString]
-			if exists != true {
-				break
-			}
-		}
-
-		var out template.HTML
-
-		for {
-			i += 1
-			if pos-i <= 0 {
-				break
-			}
-
-			titleString := fmt.Sprintf("%d-title", pos-i)
-			title, exists := data[titleString]
-
-			if exists == false {
-				break
-			}
-
-			buf := bytes.NewBuffer(nil)
-			var data map[string]string
-			data["title"] = title
-			data["index"] = string(pos - i)
-			indent := "\r\n" + strings.Repeat(" ", times)
-			str := buf.String()
-			split := strings.Split(strings.ReplaceAll(str, "\r\n", "\n"), "\n")
-			str = strings.Join(split, indent)
-			err := (*tmpl).ExecuteTemplate(buf, name, data)
-			if err != nil {
-				log.Fatal(err)
-			}
-			/*
-				We trust that the evaluated template to be HTML.
-				All child templates must ensure they escape text.
-				Therefore when include consumes a template relevent content should already be escaped.
-			*/
-			out += "\r\n" + template.HTML(str)
-		}
-		return out, nil
 	}
 	return funcs, nil
 }
