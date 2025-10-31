@@ -21,22 +21,11 @@ type data struct {
 	FuncMap           template.FuncMap
 }
 
-func min(a int, b int) int {
-	if b < a {
-		a = b
-	}
-	return a
-}
-
-func max(a int, b int) int {
-	if b > a {
-		a = b
-	}
-	return a
-}
-
 func funcMap(tmpl **template.Template) (template.FuncMap, error) {
+	// stores functions that will be used in rendering template
 	var funcs template.FuncMap = map[string]interface{}{}
+
+	// return the content of a file as a string
 	funcs["fopen"] = func(filename string) string {
 		bytes, err := os.ReadFile(filename)
 		if err != nil {
@@ -45,6 +34,8 @@ func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 		str := string(bytes)
 		return str
 	}
+
+	// render the template named such and such a thing
 	funcs["include"] = func(name string, data interface{}, times int) (template.HTML, error) {
 		indent := "\r\n" + strings.Repeat(" ", times)
 		buf := bytes.NewBuffer(nil)
