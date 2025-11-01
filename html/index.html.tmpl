@@ -17,7 +17,7 @@
             <hr>
 
             <section id="featured-articles">
-                {{ range $index, $article := arrayOfObjects "articles.json" }}
+                {{ range $index, $article := objects "articles.json" }}
                     {{ if gt $index 5 }}
                         {{ break }}
                     {{ end }}
