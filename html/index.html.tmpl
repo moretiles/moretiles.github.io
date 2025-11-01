@@ -1,0 +1,36 @@
+{{ define "/index.html" }}
+<!doctype html>
+<html lang="en">
+    <head>
+        {{ template "/head" . }}
+        <title>Home</title>
+    </head>
+    <body id="home-page">
+        {{ template "/header" . }}
+        <main>
+            <section id="intro">
+                <p>I'm David, a Cybersecurity Engineering student.</p>
+                <p>This site lists short articles I've written and some of my projects.</p>
+                <p>If you have any questions feel free to reach out using the email attached to my git commits.</p>
+            </section>
+
+            <hr>
+
+            <section id="featured-articles">
+                {{ range $index, $article := arrayOfObjects "articles.json" }}
+                    {{ if gt $index 5 }}
+                        {{ break }}
+                    {{ end }}
+                    <article>
+                        <h3>{{ $article.Title }}</h3>
+                        <p>{{ $article.Description }}</p>
+                        <a href="{{ $article.Link }}" class="square-link">open</a>
+                        <hr>
+                    </article>
+                {{ end }}
+            </section>
+        </main>
+        {{ template "/footer" . }}
+    </body>
+</html>
+{{ end }}

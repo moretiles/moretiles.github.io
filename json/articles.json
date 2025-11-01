@@ -1,0 +1,12 @@
+[
+    {
+        "Title": "Getting More from Tab Completion",
+        "Description": "The ? operator in the IOS shell and the why shortcuts for contextual information are awesome.",
+        "Link": "/articles/getting-more-from-tab-completion.html"
+    },
+    {
+        "Title": "The Power of Go Templates",
+        "Description": "Extending the behavior of Go Templates by creating new functions that can be called from within templates.",
+        "Link": "/articles/the-power-of-go-templates.html"
+    }
+]

@@ -1,0 +1,21 @@
+{{ define "/articles.html" }}
+<!doctype html>
+<html lang="en">
+    <head>
+        {{ template "/head" . }}
+        <title>Articles</title>
+    </head>
+    <body id="articles">
+        {{ template "/header" . }}
+        <main>
+            <h1>Articles</h1>
+            <ul>
+            {{ range $index, $article := arrayOfObjects "articles.json" }}
+                <li><a href="{{ $article.Link }}">{{ $article.Title }}</a></li>
+            {{ end }}
+            </ul>
+        </main>
+        {{ template "/footer" . }}
+    </body>
+</html>
+{{ end }}

@@ -1,14 +1,13 @@
+{{ define "/articles/getting-more-from-tab-completion.html" }}
 <!doctype html>
 <html lang="en">
     <head>
-        {{ include "head" nil 8 }}
+        {{ template "/articles/head" . }}
         <title>Getting More from Tab Completion</title>
-        <link rel="stylesheet" href="/css/prism.css">
     </head>
     <body id="test">
-        <script src="/js/prism.js"></script>
+        {{ template "/header" . }}
         <main>
-
             <h1>Getting More from Tab Completion</h1>
             <p>This year I bought a used CISCO switch and router and set up a subnet for my home computers. CISCO IOS, the operating system on both the router and switch, requires you to use a custom shell which lacks many basic features. As an example, assigning arbitrary variables is <a href="https://serverfault.com/questions/606419/does-cisco-ios-support-the-use-of-variables-in-its-configuration">not possible in older versions</a>.</p>
             <p>Despite the shell's limited capabilities, its ? operator exposes a wonderful set of ergonomics I can't believe isn't standard.</p>
@@ -35,7 +34,7 @@
             <p>Hopefully in the future shells and other interactive environments experiment to see what other relevant information could be made available through similar shortcuts. As an example relevant to BASH, allowing control and &quest; to print to the screen the exit code of the most recent command or control and &percnt; to highlight the surrounding parenthesis when inside of a &dollar;&lpar;&rpar; style command substitution would be very useful.</p>
             <p>If anyone still reading aspires to or is currently designing an interpreted language, experiment with ways users can get additional information during active sessions. Tab completion alone just isn't cutting it.</p>
         </main>
-        {{ include "header" nil 8 }}
-        {{ include "footer" nil 8 }}
+        {{ template "/footer" . }}
     </body>
 </html>
+{{ end }}
