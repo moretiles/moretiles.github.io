@@ -1,218 +1,156 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	//"fmt"
+	//"bytes"
+	"embed"
+	//"encoding/json"
 	"html/template"
 	"log"
+	//"path/filepath"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
-type data struct {
-	SourceDir         string                         `json:"SourceDir"`
-	OutputDir         string                         `json:"OutputDir"`
-	BuildWants        []string                       `json:"BuildWants"`
-	BuildTemplates    map[string][]string            `json:"BuildTemplates"`
-	BuildDirWants     []string                       `json:"BuildDirWants"`
-	BuildDirTemplates map[string]map[string][]string `json:"BuildDirTemplates"`
-	FuncMap           template.FuncMap
-}
-
+// Assemble required functions to properly render template
 func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 	// stores functions that will be used in rendering template
 	var funcs template.FuncMap = map[string]interface{}{}
 
-	// return the content of a file as a string
-	funcs["fopen"] = func(filename string) string {
-		bytes, err := os.ReadFile(filename)
+	/*
+	 * insert preformatted text file located under pre/
+	 * All files in pre/ are recursively loaded into the global variable root
+	 */
+	funcs["pre"] = func(filename string) (string, error) {
+		fullpath := strings.Join([]string{"pre", filename}, "/")
+		byteString, err := root.ReadFile(fullpath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		str := string(bytes)
-		return str
+
+		return string(byteString), nil
 	}
 
-	// render the template named such and such a thing
-	funcs["include"] = func(name string, data interface{}, times int) (template.HTML, error) {
-		indent := "\r\n" + strings.Repeat(" ", times)
-		buf := bytes.NewBuffer(nil)
-		err := (*tmpl).ExecuteTemplate(buf, name, data)
+	// Return json file that is an array of objects as a [](map[string]string)
+	funcs["arrayOfObjects"] = func(filename string) ([](map[string]string), error) {
+		var slice [](map[string]string) = make([](map[string]string), 99)
+		fullpath := strings.Join([]string{"json", filename}, "/")
+		file, err := os.Open(fullpath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		str := buf.String()
-		split := strings.Split(strings.ReplaceAll(str, "\r\n", "\n"), "\n")
-		str = strings.Join(split, indent)
-		/*
-			We trust that the evaluated template to be HTML.
-			All child templates must ensure they escape text.
-			Therefore when include consumes a template relevent content should already be escaped.
-		*/
-		return template.HTML(str), nil
+		defer file.Close()
+		byteString, err := io.ReadAll(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = json.Unmarshal(byteString, &slice)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return slice, nil
 	}
+
 	return funcs, nil
 }
 
-func buildFiles(tmpl **template.Template, build data) {
-	wants := build.BuildWants
-	var context map[string]map[string]string
+// Collect a slice of all file paths (no directories) under the base path in files
+func collectAll(files *embed.FS, base string) ([]string, error) {
+	var paths []string
+	dir, err := root.ReadDir(base)
+	if err != nil {
+		return nil, err
+	}
 
-	for in, files := range build.BuildTemplates {
-		split := strings.Split(in, `.`)
-		if len(split) <= 1 || split[len(split)-1] != `tmpl` {
-			log.Fatal(fmt.Errorf("Input template \"%s\" poorly named, must end in .tmpl", in))
-		}
-		out := strings.Join(split[0:len(split)-1], `.`)
-
-		outFile, err := os.OpenFile(filepath.Join(build.OutputDir, out), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer outFile.Close()
-
-		contextFile := out + ".json"
-		if _, err := os.Stat(contextFile); os.IsNotExist(err) {
-			context = nil
-		} else if err == nil {
-			content, err := os.ReadFile(contextFile)
+	for _, file := range dir {
+		fullName := strings.Join([]string{base, file.Name()}, "/")
+		if file.IsDir() {
+			children, err := collectAll(files, fullName)
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = json.Unmarshal(content, &context)
-			if err != nil {
-				log.Printf("%s\n", string(content))
-				log.Fatal(err)
-			}
+			paths = append(paths, children...)
 		} else {
-			log.Fatal(err)
+			//fmt.Printf("%v/%v\n", base, file.Name())
+			paths = append(paths, fullName)
 		}
-
-		*tmpl = template.New(in)
-		files = append(files, in)
-		files = append(files, wants...)
-		*tmpl, err = (*tmpl).Funcs(build.FuncMap).ParseFiles(files...)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = (*tmpl).Execute(outFile, context)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		//fmt.Printf("in is %s, out is %s, context is %s, files to include are %v\n", in, out, contextFile, files)
-		outFile.Close()
 	}
+
+	return paths, nil
 }
 
-func buildDirs(tmpl **template.Template, build data) {
-	wants := build.BuildDirWants
-	var context map[string]string
-	var files []string
+// Treating each file specified as a template execute it writing the output under docs/
+func executeAll(tmpl *template.Template, files []string) error {
+	for _, fullpath := range files {
+		// remove trailing .tmpl
+		splitSlice := strings.Split(fullpath, ".")
+		splitSlice = splitSlice[:len(splitSlice)-1]
+		filename := strings.Join(splitSlice, ".")
 
-	for dir, special := range build.BuildDirTemplates {
-		dirFile, err := os.Open(dir)
+		splitSlice = strings.Split(filename, "/")
+		splitSlice = splitSlice[1:]
+		templateName := strings.Join(splitSlice, "/")
+		templateName = "/" + templateName
+
+		splitSlice = strings.Split(filename, "/")
+		splitSlice[0] = "docs"
+		outputPath := strings.Join(splitSlice, "/")
+
+		openFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer dirFile.Close()
-
-		contents, err := dirFile.Readdirnames(-1)
+		defer openFile.Close()
+		err = tmpl.ExecuteTemplate(openFile, templateName, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		for _, file := range contents {
-			shortFile := file
-			file = filepath.Join(dir, file)
-			split := strings.Split(file, `.`)
-			if len(split) <= 1 {
-				log.Fatal(fmt.Errorf("Input template \"%s\" poorly named, contains no '.'", file))
-			} else if split[len(split)-1] != `tmpl` {
-				continue
-			}
-
-			out := strings.Join(split[0:len(split)-1], `.`)
-
-			outFile, err := os.OpenFile(filepath.Join(build.OutputDir, out), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer outFile.Close()
-
-			contextFile := out + ".json"
-			if _, err := os.Stat(contextFile); os.IsNotExist(err) {
-				context = nil
-			} else if err == nil {
-				content, err := os.ReadFile(contextFile)
-				if err != nil {
-					log.Fatal(err)
-				}
-				err = json.Unmarshal(content, &context)
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
-				log.Fatal(err)
-			}
-
-			*tmpl = template.New(shortFile)
-			files = special[file]
-			files = append(files, file)
-			files = append(files, wants...)
-			*tmpl, err = (*tmpl).Funcs(build.FuncMap).ParseFiles(files...)
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = (*tmpl).Execute(outFile, context)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			//fmt.Printf("file is %s, out is %s, context is %s, files to include are %v\n", file, out, contextFile, files)
-			outFile.Close()
-		}
-
-		dirFile.Close()
+		fmt.Println(outputPath)
 	}
+
+	return nil
 }
+
+/*
+ * Data structure used to load all contents of html/, include/, and pre/ recursively.
+ * We can find elements using their paths or while iterating over directories.
+ */
+//go:embed html/* include/* pre/*
+var root embed.FS
 
 func main() {
+	include, err := collectAll(&root, "include")
+	if err != nil {
+		log.Fatal(err)
+	}
+	html, err := collectAll(&root, "html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	tmpl := template.New("")
 	funcs, err := funcMap(&tmpl)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	var build data
-	config, err := os.ReadFile("./data.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = json.Unmarshal(config, &build)
-	build.FuncMap = funcs
-
-	if build.SourceDir == "" {
-		log.Fatal(fmt.Errorf("Sourcedir not set in json config, cannot read in anything"))
-	}
-	build.SourceDir, err = filepath.Abs(build.SourceDir)
+	tmpl = tmpl.Funcs(funcs)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if build.OutputDir == "" {
-		log.Fatal(fmt.Errorf("OutputDir not set in json config, cannot output"))
-	}
-	build.OutputDir, err = filepath.Abs(build.OutputDir)
+	tmpl, err = tmpl.ParseFS(root, include...)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if os.Chdir(build.SourceDir) != nil {
+	tmpl, err = tmpl.ParseFS(root, html...)
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	buildFiles(&tmpl, build)
-	buildDirs(&tmpl, build)
+	executeAll(tmpl, html)
 }
