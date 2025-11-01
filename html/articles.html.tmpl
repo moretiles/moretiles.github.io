@@ -10,7 +10,7 @@
         <main>
             <h1>Articles</h1>
             <ul>
-            {{ range $index, $article := arrayOfObjects "articles.json" }}
+            {{ range $index, $article := objects "articles.json" }}
                 <li><a href="{{ $article.Link }}">{{ $article.Title }}</a></li>
             {{ end }}
             </ul>

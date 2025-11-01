@@ -11,7 +11,9 @@
             <h1>Getting More from Tab Completion</h1>
             <p>This year I bought a used CISCO switch and router and set up a subnet for my home computers. CISCO IOS, the operating system on both the router and switch, requires you to use a custom shell which lacks many basic features. As an example, assigning arbitrary variables is <a href="https://serverfault.com/questions/606419/does-cisco-ios-support-the-use-of-variables-in-its-configuration">not possible in older versions</a>.</p>
             <p>Despite the shell's limited capabilities, its ? operator exposes a wonderful set of ergonomics I can't believe isn't standard.</p>
-            <!--  Include image of the tab completion when there are maybe five or fewer commands -->
+            <video width="700" height="470" controls>
+                <source src="/assets/articles/getting-more-from-tab-completion/terminal.mp4" type="video/mp4">
+            </video>
             <p>For reference, typing &quest; with no command or subcommand shows what is available alongside a short help string. Think of it as a quieter, more thoughtful tab completion.</p>
 
 			<br>
@@ -19,7 +21,6 @@
             <h2>Why &quest; rocks and code completion is awful</h2>
             <p>Using &quest; is an active decision, you, the person actually using the software tell the shell "I am not sure what to select, please tell me what my available options are and a bit about what they do". Furthermore, there is no way in which what you've entered will actually change.</p>
             <p>The normal user experience thus sends up being something like: Start typing, pause because you can't remember if you need to use close or shut, type &quest;, read, get the result you wanted. For this reason, &quest; makes it really nice to learn about relevant new commands and review commands you've already used.</p>
-            <!-- Include a gif showing tab completion -->
             <p>What surprises me is that this positive experience is very different that what I've felt when using code completion in editors. I think the main reason is that code completion, whether always-on or enabled-after-a-pause, interrupts your thinking with visual noise that is largely irrelevant. The help that appears when pressing tab or &quest;, on the other hand, is placed just above the current line, making it easy to ignore and is contextually appropriate to an environment where your cursor travels downward. Hmm... perhaps the best Unix editor really is <a href="https://en.wikipedia.org/wiki/Ed_(software)">Ed</a>.</p>
 
 			<br>

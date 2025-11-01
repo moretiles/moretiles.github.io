@@ -10,7 +10,6 @@ import (
 	//"path/filepath"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 )
@@ -25,7 +24,7 @@ func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 	 * All files in pre/ are recursively loaded into the global variable root
 	 */
 	funcs["pre"] = func(filename string) (string, error) {
-		fullpath := strings.Join([]string{"pre", filename}, "/")
+		fullpath := "pre" + "/" + filename
 		byteString, err := root.ReadFile(fullpath)
 		if err != nil {
 			log.Fatal(err)
@@ -35,15 +34,10 @@ func funcMap(tmpl **template.Template) (template.FuncMap, error) {
 	}
 
 	// Return json file that is an array of objects as a [](map[string]string)
-	funcs["arrayOfObjects"] = func(filename string) ([](map[string]string), error) {
+	funcs["objects"] = func(filename string) ([](map[string]string), error) {
 		var slice [](map[string]string) = make([](map[string]string), 99)
-		fullpath := strings.Join([]string{"json", filename}, "/")
-		file, err := os.Open(fullpath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer file.Close()
-		byteString, err := io.ReadAll(file)
+		fullpath := "json" + "/" + filename
+		byteString, err := root.ReadFile(fullpath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -67,7 +61,7 @@ func collectAll(files *embed.FS, base string) ([]string, error) {
 	}
 
 	for _, file := range dir {
-		fullName := strings.Join([]string{base, file.Name()}, "/")
+		fullName := base + "/" + file.Name()
 		if file.IsDir() {
 			children, err := collectAll(files, fullName)
 			if err != nil {
@@ -86,20 +80,23 @@ func collectAll(files *embed.FS, base string) ([]string, error) {
 // Treating each file specified as a template execute it writing the output under docs/
 func executeAll(tmpl *template.Template, files []string) error {
 	for _, fullpath := range files {
-		// remove trailing .tmpl
+		// Determine filename
 		splitSlice := strings.Split(fullpath, ".")
 		splitSlice = splitSlice[:len(splitSlice)-1]
 		filename := strings.Join(splitSlice, ".")
 
+		// Determine templateName
 		splitSlice = strings.Split(filename, "/")
 		splitSlice = splitSlice[1:]
 		templateName := strings.Join(splitSlice, "/")
 		templateName = "/" + templateName
 
+		// Determine outputPath
 		splitSlice = strings.Split(filename, "/")
 		splitSlice[0] = "docs"
 		outputPath := strings.Join(splitSlice, "/")
 
+		// Write data
 		openFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			log.Fatal(err)
@@ -110,6 +107,7 @@ func executeAll(tmpl *template.Template, files []string) error {
 			log.Fatal(err)
 		}
 
+		// Debug statement
 		fmt.Println(outputPath)
 	}
 
@@ -117,13 +115,14 @@ func executeAll(tmpl *template.Template, files []string) error {
 }
 
 /*
- * Data structure used to load all contents of html/, include/, and pre/ recursively.
- * We can find elements using their paths or while iterating over directories.
+ * Data structure used to load all contents of html/, include/, pre/, and json recursively.
+ * We can find files using their paths or by iterating over root directories.
  */
-//go:embed html/* include/* pre/*
+//go:embed html/* include/* pre/* json/*
 var root embed.FS
 
 func main() {
+	// Load html files (html/), templates (include/)
 	include, err := collectAll(&root, "include")
 	if err != nil {
 		log.Fatal(err)
@@ -133,6 +132,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Load functions required to process templates
 	tmpl := template.New("")
 	funcs, err := funcMap(&tmpl)
 	if err != nil {
@@ -143,6 +143,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	/*
+	 * Load templates themselves
+	 * The templates in include/ are consumed by the html templates in html/
+	 */
 	tmpl, err = tmpl.ParseFS(root, include...)
 	if err != nil {
 		log.Fatal(err)
@@ -152,5 +156,6 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Write templates to docs (output directory)
 	executeAll(tmpl, html)
 }
