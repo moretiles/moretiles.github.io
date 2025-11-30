@@ -1,0 +1,380 @@
+
+<!doctype html>
+<html lang="en">
+    <head>
+        
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="icon" type="image/png" href="/assets/icon/icon.png">
+
+<link rel="stylesheet" href="/assets/css/prism.css">
+<script src="/assets/js/prism.js"></script>
+
+        <title>Implementing a mutex and semaphore without pthreads</title>
+    </head>
+    <body id="test">
+        
+<header>
+    <nav id="global-navigation">
+        <section class="internal-links">
+            <a href="/index.html" class="nav-link">Home</a>
+            <a href="/articles.html" class="nav-link">Articles</a>
+            <a href="/projects.html" class="nav-link">Projects</a>
+            <a href="/about.html" class="nav-link">About</a>
+        </section>
+        <section class="external-links">
+            <a href="https://github.com/moretiles"><img src="/assets/icon/github-mark.svg" alt="Github logo" class="icon"></a>
+            <a href="https://github.com/moretiles"><img src="/assets/icon/LI-In-Bug.png" alt="Linkedin logo" class="icon"></a>
+        </section>
+    </nav>
+</header>
+
+        <main>
+
+            <h1>Implementing a mutex and semaphore without pthreads</h1>
+            <p>This week, I decided to implement a thread pool and so spend a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
+
+            <h2>What is a futex?</h2>
+            <p>futexes are mutexes that are manipulated through lower overhead system calls compared to traditional mutexes. It seems like the term referred to a kind of fast mutex implemented on Linux, but, is now more general. If you're interested in the history and motivation, <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/">Bendersky has a great article I'd recommend</a>.</p>
+            <p>The main piece of documentation for the futex api on Linux is its <a href="https://www.man7.org/linux/man-pages/man2/futex.2.html">man page</a>. The only two operations I plan to use are from the <a href="https://www.man7.org/linux/man-pages/man2/FUTEX_WAIT.2const.html">FUTEX_WAIT</a> and <a href="https://www.man7.org/linux/man-pages/man2/FUTEX_WAKE.2const.html">FUTEX_WAKE</a> families.</p>
+        
+            <pre><code class="language-C">NAME
+       FUTEX_WAIT - sleep waiting for a FUTEX_WAKE operation
+
+LIBRARY
+       Standard C library (libc, -lc)
+
+SYNOPSIS
+       #include &lt;linux/futex.h&gt;  /* Definition of FUTEX_* constants */
+       #include &lt;sys/syscall.h&gt;  /* Definition of SYS_* constants */
+       #include &lt;unistd.h&gt;
+
+       long syscall(SYS_futex, uint32_t *uaddr, FUTEX_WAIT, uint32_t val,
+                    const struct timespec *_Nullable timeout);
+</code></pre>
+            <pre><code class="language-C">NAME
+       FUTEX_WAKE - wake waiters that are inside FUTEX_WAIT
+
+LIBRARY
+       Standard C library (libc, -lc)
+
+SYNOPSIS
+       #include &lt;linux/futex.h&gt;  /* Definition of FUTEX_* constants */
+       #include &lt;sys/syscall.h&gt;  /* Definition of SYS_* constants */
+       #include &lt;unistd.h&gt;
+
+       long syscall(SYS_futex, uint32_t *uaddr, FUTEX_WAKE, uint32_t val);
+</code></pre>
+
+            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE system call.</p>
+
+            <h2>Implementing a mutex</h2>
+            <p>Suppose a mutex has the below api. Create, advise, init, deinit, and destroy are trivial. Lock and unlock are the interesting operations. Because FUTEX system calls expect the memory address used to be associated with a uint32 (unsigned 32 bit integer), the struct fmutex type is just a wrapper around that. The locked field itself should be treated as an atomic variable.</p>
+
+            <pre><code class="language-C">/*
+ * fmutex.h -- Mutex data structure implemented using futex.
+ * Relies on Linux system calls.
+ *
+ * DERT - Miscellaneous Data Structures Library
+ * https://github.com/moretiles/dert
+ * Project licensed under Apache-2.0 license
+ */
+
+#include &lt;stddef.h&gt;
+#include &lt;stdbool.h&gt;
+#include &lt;stdint.h&gt;
+
+#ifndef DERT_FMUTEX
+#define DERT_FMUTEX 1
+typedef struct fmutex {
+    // Linux FUTEX syscall requires a uint32_t*
+    // So, use this uint32_t as a boolean
+    uint32_t locked;
+} Fmutex;
+
+// Allocates memory for and create
+// Default state is unlocked
+Fmutex *fmutex_create(void);
+
+// Advise how much memory is needed
+size_t fmutex_advise(void);
+
+// Advise for many
+size_t fmutex_advisev(size_t num_mutexes);
+
+// Initialize
+// Default state is unlocked
+int fmutex_init(Fmutex **dest, void *memory);
+
+// Initialize for many
+int fmutex_initv(size_t num_mutexes, Fmutex *dest[], void *memory);
+
+// Deinitialize
+void fmutex_deinit(Fmutex *mutex);
+
+/*
+ * Destroys a Fmutex that was allocated by fmutex_create.
+ * Please, only use with memory allocated by fmutex_create!
+ */
+void fmutex_destroy(Fmutex *mutex);
+
+// lock mutex
+// forces calling thread to wait if currently locked
+// can lead to deadlock
+int fmutex_lock(Fmutex *mutex);
+
+// unlock mutex
+// fails if mutex is already unlocked
+int fmutex_unlock(Fmutex *mutex);
+#endif
+</code></pre>
+
+            <p>We can implement the act of locking using an atomic compare and exchange in-place operation that asks to set mutex->locked to true if its current value is false otherwise fail. Failure leads to entry into a while that forces the FUTEX_WAIT_PRIVATE system call to put this thread to sleep and try again when woken. I dislike the use of errno for error checking, but am forced to use it in this case.</p>
+
+            <pre><code class="language-C">int fmutex_lock(Fmutex *mutex) {
+    long res;
+    uint32_t expected = false;
+
+    if(mutex == NULL) {
+        return EINVAL;
+    }
+
+    while(!(__atomic_compare_exchange_n(&amp;(mutex-&gt;locked),
+                                        &amp;expected, true, false,
+                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))) {
+        // want to perform FUTEX_WAIT_PRIVATE syscall
+        // Successful result (meaning sem-&gt;counter != 0) can be signaled in two ways
+        // First, syscall itself returns 0 if waited then awaken
+        // Two, syscall failed with -1 as sem-&gt;counter was not 0, errno is EAGAIN
+
+        errno = 0;
+        res = syscall(SYS_futex, &amp;(mutex-&gt;locked), FUTEX_WAIT_PRIVATE, true, NULL);
+        if(res == 0 || errno == EAGAIN) {
+            // proceed
+        } else {
+            printf(&#34;error with FUTEX_WAIT in %s = %d\n&#34;, __func__, errno);
+            return errno;
+        }
+        errno = 0;
+    }
+
+    return 0;
+}
+</code></pre>
+
+            <p>Unlocking is even simpler. An atomic compare exchange operation is required, however, unlock should only be used when the mutex is in a locked state. A wake message is broadcast on completion to at most one client. Thankfully, FUTEX_WAKE_PRIVATE does not force you to probe the errno variable to ensure success.</p>
+
+            <pre><code class="language-C">int fmutex_unlock(Fmutex *mutex) {
+    long res;
+    uint32_t expected = true;
+    bool success;
+    if(mutex == NULL) {
+        return EINVAL;
+    }
+
+    success = __atomic_compare_exchange_n(&amp;(mutex-&gt;locked),
+                                          &amp;expected, false, false,
+                                          __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    if(success) {
+        errno = 0;
+        res = syscall(SYS_futex, &amp;(mutex-&gt;locked), FUTEX_WAKE_PRIVATE, 1);
+        if(res &lt; 0) {
+            printf(&#34;error with FUTEX_WAKE in %s = %d\n&#34;, __func__, errno);
+            return res;
+        }
+    } else {
+        // expected is update with the current value on failure
+        assert(expected == false);
+    }
+
+    return 0;
+}
+</code></pre>
+
+            <h2>Implementing a semaphore</h2>
+            <p>Implementing a semaphore is not much more difficult than implementing a mutex. Especially when the mutex itself can be embedded into the semaphore! The create, advise, init, deinit, destroy group of five (quantfecta?) are again trivial. The interesting operations are wait and post. The exhaust and reset functions are variations on post.</p>
+
+            <pre><code class="language-C">/*
+ * fsemaphore.h -- Semaphore data structure implemented using futex.
+ * Relies on Linux system calls.
+ *
+ * DERT - Miscellaneous Data Structures Library
+ * https://github.com/moretiles/dert
+ * Project licensed under Apache-2.0 license
+ */
+
+#include &lt;fmutex.h&gt;
+
+#include &lt;stddef.h&gt;
+#include &lt;stdbool.h&gt;
+#include &lt;stdint.h&gt;
+
+#ifndef DERT_FSEMAPHORE
+#define DERT_FSEMAPHORE 1
+typedef struct fsemaphore {
+    Fmutex *mutex;
+    uint64_t counter;
+    uint64_t max;
+} Fsemaphore;
+
+// Allocates memory for and create
+// Default state is unlocked
+Fsemaphore *fsemaphore_create(uint64_t val, uint64_t max);
+
+// Advise how much memory is needed
+size_t fsemaphore_advise(uint64_t val, uint64_t max);
+
+// Advise for many
+size_t fsemaphore_advisev(size_t num_sems, uint64_t val, uint64_t max);
+
+// Initialize
+// Default state is unlocked
+int fsemaphore_init(Fsemaphore **dest, void *memory, uint64_t val, uint64_t max);
+
+// Initialize for many
+int fsemaphore_initv(size_t num_sems, Fsemaphore *dest[], void *memory, uint64_t val, uint64_t max);
+
+// Deinitialize
+void fsemaphore_deinit(Fsemaphore *sem);
+
+/*
+ * Destroys a Fsemaphore that was allocated by fsemaphore_create.
+ * Please, only use with memory allocated by fsemaphore_create!
+ */
+void fsemaphore_destroy(Fsemaphore *sem);
+
+// Set count for sem to 0
+int fsemaphore_exhaust(Fsemaphore *sem);
+
+// Decreate count for sem by decrement if count is greater than 0
+// Else, block until available
+int fsemaphore_wait(Fsemaphore *sem);
+
+// Increment count for sem by increment
+int fsemaphore_post(Fsemaphore *sem);
+
+// Set count for sem to its max
+int fsemaphore_reset(Fsemaphore *sem);
+#endif
+</code></pre>
+
+            <p>Wait is implemented similarly to fmutex_lock. The caller is forced into a while and only allowed to exit if they decrement the counter or a critical error occurs. The counter field of Fsemaphore needs to be atomic as multiple threads may be watching it as any one thread modifies it. Not so bad.</p>
+
+            <pre><code class="language-C">int fsemaphore_wait(Fsemaphore *sem) {
+    long res;
+    bool mutex_locked = false;
+    bool decremented = false;
+    if(sem == NULL) {
+        return EINVAL;
+    }
+
+    while(!decremented) {
+        res = fmutex_lock(sem-&gt;mutex);
+        if(res != 0) {
+            goto fsemaphore_wait_error;
+        }
+        mutex_locked = true;
+        if(__atomic_load_n(&amp;(sem-&gt;counter), __ATOMIC_ACQUIRE) &gt; 0) {
+            __atomic_fetch_sub(&amp;(sem-&gt;counter), 1, __ATOMIC_ACQ_REL);
+            decremented = true;
+        } else {
+            res = fmutex_unlock(sem-&gt;mutex);
+            if(res != 0) {
+                goto fsemaphore_wait_error;
+            }
+            mutex_locked = false;
+
+            // want to perform FUTEX_WAIT_PRIVATE syscall
+            // Successful result (sem-&gt;counter != 0) can be signaled in two ways
+            // First, syscall itself returns 0 if waited then awaken
+            // Two, syscall failed with -1 as sem-&gt;counter was not 0, errno is EAGAIN
+
+            errno = 0;
+            res = syscall(SYS_futex, &amp;(sem-&gt;counter), FUTEX_WAIT_PRIVATE, 0, NULL);
+            if(res == 0 || errno == EAGAIN) {
+                // proceed
+            } else {
+                res = errno;
+                goto fsemaphore_wait_error;
+            }
+            errno = 0;
+        }
+    }
+
+fsemaphore_wait_error:
+    if(mutex_locked) {
+        fmutex_unlock(sem-&gt;mutex);
+        mutex_locked = false;
+    }
+    if(res != 0) {
+        printf(&#34;error with FUTEX_WAKE in %s = %ld\n&#34;, __func__, res);
+    }
+    return res;
+}
+</code></pre>
+
+            <p>Post is implemented similarly to fmutex_unlock. Unlike compare and exchange the atomic addition and subtract functions never fail.</p>
+
+            <pre><code class="language-C">int fsemaphore_post(Fsemaphore *sem) {
+    bool mutex_locked = false;
+    long res;
+
+    res = fmutex_lock(sem-&gt;mutex);
+    if(res != 0) {
+        goto fsemaphore_post_error;
+    }
+    mutex_locked = true;
+    if(__atomic_load_n(&amp;(sem-&gt;counter), __ATOMIC_ACQUIRE) == sem-&gt;max) {
+        res = EDEADLK;
+        goto fsemaphore_post_error;
+    } else {
+        __atomic_fetch_add(&amp;(sem-&gt;counter), 1, __ATOMIC_ACQ_REL);
+
+        errno = 0;
+        res = syscall(SYS_futex, &amp;(sem-&gt;counter), FUTEX_WAKE_PRIVATE, 1);
+        if(res &lt; 0) {
+            goto fsemaphore_post_error;
+        }
+        res = 0;
+
+        res = fmutex_unlock(sem-&gt;mutex);
+        if(res != 0) {
+            goto fsemaphore_post_error;
+        }
+        mutex_locked = false;
+    }
+
+fsemaphore_post_error:
+    if(mutex_locked) {
+        fmutex_unlock(sem-&gt;mutex);
+        mutex_locked = false;
+    }
+    if(res != 0) {
+        printf(&#34;error with FUTEX_WAKE in %s = %d\n&#34;, __func__, errno);
+    }
+    return 0;
+}
+</code></pre>
+
+            <p>One thing I thought about when writing this up was that it would be possible (I believe) to make a lock-free version of this semaphore. The difference would be that rather than locking and then using an atomic load to check the current value of the counter you would instead perform an atomic load to get the value of the counter and then try to perform an atomic compare and exchange using the incremented or decremented value from the load operation. Could be interesting.</p>
+
+            <h2>Clear and obvious downsides</h2>
+            <p>These multi-threading primitives are fun and effective. Sadly, there are some reasons I would not use them for anything serious. pthreads is designed to handle many, many edge cases and platforms. My implementation is not. Also, when testing this, <a href="https://clang.llvm.org/docs/ThreadSanitizer.html">thread sanitizer</a> (a tool anyone who does multithreaded programming in C and C++ should embrace) was very unhelpful. It's normally able to cleverly spot deadlock and race conditions. Not so when you use system calls themselves.</p>
+            <p>All the same, it's pretty cool that you can implement a mutex and semaphore in about an afternoon.</p>
+
+            <ul>
+            <li><a href="https://github.com/moretiles/dert/blob/master/header/fmutex.h">Full header for mutex</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/src/fmutex.c">Full source for mutex</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/header/fsemaphore.h">Full header for semaphore</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/src/fsemaphore.c">Full source for semaphore</a></li>
+            </ul>
+        </main>
+        
+<footer>
+    <p>&#169; 2025 David Vergano</p>
+</footer>
+
+    </body>
+</html>

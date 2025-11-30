@@ -1,0 +1,66 @@
+{{ define "/articles/mutex-and-semaphore-without-pthreads.html" }}
+<!doctype html>
+<html lang="en">
+    <head>
+        {{ template "/articles/head" . }}
+        <title>Implementing a mutex and semaphore without pthreads</title>
+    </head>
+    <body id="test">
+        {{ template "/header" . }}
+        <main>
+
+            <h1>Implementing a mutex and semaphore without pthreads</h1>
+            <p>This week, I decided to implement a thread pool and so spend a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
+
+            <h2>What is a futex?</h2>
+            <p>futexes are mutexes that are manipulated through lower overhead system calls compared to traditional mutexes. It seems like the term referred to a kind of fast mutex implemented on Linux, but, is now more general. If you're interested in the history and motivation, <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/">Bendersky has a great article I'd recommend</a>.</p>
+            <p>The main piece of documentation for the futex api on Linux is its <a href="https://www.man7.org/linux/man-pages/man2/futex.2.html">man page</a>. The only two operations I plan to use are from the <a href="https://www.man7.org/linux/man-pages/man2/FUTEX_WAIT.2const.html">FUTEX_WAIT</a> and <a href="https://www.man7.org/linux/man-pages/man2/FUTEX_WAKE.2const.html">FUTEX_WAKE</a> families.</p>
+        
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/futex_wait.man" }}</code></pre>
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/futex_wake.man" }}</code></pre>
+
+            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE system call.</p>
+
+            <h2>Implementing a mutex</h2>
+            <p>Suppose a mutex has the below api. Create, advise, init, deinit, and destroy are trivial. Lock and unlock are the interesting operations. Because FUTEX system calls expect the memory address used to be associated with a uint32 (unsigned 32 bit integer), the struct fmutex type is just a wrapper around that. The locked field itself should be treated as an atomic variable.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fmutex.h" }}</code></pre>
+
+            <p>We can implement the act of locking using an atomic compare and exchange in-place operation that asks to set mutex->locked to true if its current value is false otherwise fail. Failure leads to entry into a while that forces the FUTEX_WAIT_PRIVATE system call to put this thread to sleep and try again when woken. I dislike the use of errno for error checking, but am forced to use it in this case.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fmutex_lock.c" }}</code></pre>
+
+            <p>Unlocking is even simpler. An atomic compare exchange operation is required, however, unlock should only be used when the mutex is in a locked state. A wake message is broadcast on completion to at most one client. Thankfully, FUTEX_WAKE_PRIVATE does not force you to probe the errno variable to ensure success.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fmutex_unlock.c" }}</code></pre>
+
+            <h2>Implementing a semaphore</h2>
+            <p>Implementing a semaphore is not much more difficult than implementing a mutex. Especially when the mutex itself can be embedded into the semaphore! The create, advise, init, deinit, destroy group of five (quantfecta?) are again trivial. The interesting operations are wait and post. The exhaust and reset functions are variations on post.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fsemaphore.h" }}</code></pre>
+
+            <p>Wait is implemented similarly to fmutex_lock. The caller is forced into a while and only allowed to exit if they decrement the counter or a critical error occurs. The counter field of Fsemaphore needs to be atomic as multiple threads may be watching it as any one thread modifies it. Not so bad.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fsemaphore_wait.c" }}</code></pre>
+
+            <p>Post is implemented similarly to fmutex_unlock. Unlike compare and exchange the atomic addition and subtract functions never fail.</p>
+
+            <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/fsemaphore_post.c" }}</code></pre>
+
+            <p>One thing I thought about when writing this up was that it would be possible (I believe) to make a lock-free version of this semaphore. The difference would be that rather than locking and then using an atomic load to check the current value of the counter you would instead perform an atomic load to get the value of the counter and then try to perform an atomic compare and exchange using the incremented or decremented value from the load operation. Could be interesting.</p>
+
+            <h2>Clear and obvious downsides</h2>
+            <p>These multi-threading primitives are fun and effective. Sadly, there are some reasons I would not use them for anything serious. pthreads is designed to handle many, many edge cases and platforms. My implementation is not. Also, when testing this, <a href="https://clang.llvm.org/docs/ThreadSanitizer.html">thread sanitizer</a> (a tool anyone who does multithreaded programming in C and C++ should embrace) was very unhelpful. It's normally able to cleverly spot deadlock and race conditions. Not so when you use system calls themselves.</p>
+            <p>All the same, it's pretty cool that you can implement a mutex and semaphore in about an afternoon.</p>
+
+            <ul>
+            <li><a href="https://github.com/moretiles/dert/blob/master/header/fmutex.h">Full header for mutex</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/src/fmutex.c">Full source for mutex</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/header/fsemaphore.h">Full header for semaphore</a></li>
+            <li><a href="https://github.com/moretiles/dert/blob/master/src/fsemaphore.c">Full source for semaphore</a></li>
+            </ul>
+        </main>
+        {{ template "/footer" . }}
+    </body>
+</html>
+{{ end }}
