@@ -1,5 +1,10 @@
 [
     {
+        "Title": "A mutex and semaphore without pthreads",
+        "Description": "Using a few system calls on Linux, a mutex and semaphore can be implemented in only a few lines of code.",
+        "Link": "/articles/mutex-and-semaphore-without-pthreads.html"
+    },
+    {
         "Title": "Getting More from Tab Completion",
         "Description": "The ? operator in the IOS shell and the why shortcuts for contextual information are awesome.",
         "Link": "/articles/getting-more-from-tab-completion.html"

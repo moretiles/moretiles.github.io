@@ -1,0 +1,13 @@
+NAME
+       FUTEX_WAIT - sleep waiting for a FUTEX_WAKE operation
+
+LIBRARY
+       Standard C library (libc, -lc)
+
+SYNOPSIS
+       #include <linux/futex.h>  /* Definition of FUTEX_* constants */
+       #include <sys/syscall.h>  /* Definition of SYS_* constants */
+       #include <unistd.h>
+
+       long syscall(SYS_futex, uint32_t *uaddr, FUTEX_WAIT, uint32_t val,
+                    const struct timespec *_Nullable timeout);

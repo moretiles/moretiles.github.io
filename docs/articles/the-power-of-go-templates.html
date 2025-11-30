@@ -41,7 +41,7 @@
 
             <h2>Templates and the Func Map</h2>
             <p>The standard library offers templating through <a href="https://pkg.go.dev/text/template">text/template</a> with some solid features. If you're trying to do anything more complicated than directly inserting variables or including sections of other template files you'll need to create a <a href="https://pkg.go.dev/text/template#Template.Funcs">template.FuncMap</a>.</p>
-            <p>In the below code I create a new function map, add a function to that map to remove leading spaces from multi-line strings, define the text of the template, and then execute.
+            <p>In the below code I create a new function map, add a function to that map to remove leading spaces from multi-line strings, define the text of the template, and then execute.</p>
             <pre><code class="language-go">package main
 
 import (

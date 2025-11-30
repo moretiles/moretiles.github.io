@@ -1,0 +1,12 @@
+NAME
+       FUTEX_WAKE - wake waiters that are inside FUTEX_WAIT
+
+LIBRARY
+       Standard C library (libc, -lc)
+
+SYNOPSIS
+       #include <linux/futex.h>  /* Definition of FUTEX_* constants */
+       #include <sys/syscall.h>  /* Definition of SYS_* constants */
+       #include <unistd.h>
+
+       long syscall(SYS_futex, uint32_t *uaddr, FUTEX_WAKE, uint32_t val);
