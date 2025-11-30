@@ -1,3 +1,5 @@
+// unlock mutex
+// fails if mutex is already unlocked
 int fmutex_unlock(Fmutex *mutex) {
     long res;
     uint32_t expected = true;
@@ -6,9 +8,10 @@ int fmutex_unlock(Fmutex *mutex) {
         return EINVAL;
     }
 
-    success = __atomic_compare_exchange_n(&(mutex->locked),
-                                          &expected, false, false,
-                                          __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    success = atomic_compare_exchange_strong_explicit(&(mutex->locked),
+              &expected, false,
+              memory_order_acq_rel,
+              memory_order_acquire);
     if(success) {
         errno = 0;
         res = syscall(SYS_futex, &(mutex->locked), FUTEX_WAKE_PRIVATE, 1);

@@ -1,3 +1,6 @@
+// lock mutex
+// forces calling thread to wait if currently locked
+// can lead to deadlock
 int fmutex_lock(Fmutex *mutex) {
     long res;
     uint32_t expected = false;
@@ -6,11 +9,12 @@ int fmutex_lock(Fmutex *mutex) {
         return EINVAL;
     }
 
-    while(!(__atomic_compare_exchange_n(&(mutex->locked),
-                                        &expected, true, false,
-                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))) {
+    while(!(atomic_compare_exchange_strong_explicit(&(mutex->locked),
+            &expected, true,
+            memory_order_acq_rel,
+            memory_order_acquire))) {
         // want to perform FUTEX_WAIT_PRIVATE syscall
-        // Successful result (meaning sem->counter != 0) can be signaled in two ways
+        // Successful result (sem->counter != 0) can be signaled in two ways
         // First, syscall itself returns 0 if waited then awaken
         // Two, syscall failed with -1 as sem->counter was not 0, errno is EAGAIN
 

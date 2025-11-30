@@ -12,8 +12,8 @@ int fsemaphore_wait(Fsemaphore *sem) {
             goto fsemaphore_wait_error;
         }
         mutex_locked = true;
-        if(__atomic_load_n(&(sem->counter), __ATOMIC_ACQUIRE) > 0) {
-            __atomic_fetch_sub(&(sem->counter), 1, __ATOMIC_ACQ_REL);
+        if(atomic_load_explicit(&(sem->counter), memory_order_acquire) > 0) {
+            atomic_fetch_sub_explicit(&(sem->counter), 1, memory_order_release);
             decremented = true;
         } else {
             res = fmutex_unlock(sem->mutex);

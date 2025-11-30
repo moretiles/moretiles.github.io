@@ -7,11 +7,11 @@ int fsemaphore_post(Fsemaphore *sem) {
         goto fsemaphore_post_error;
     }
     mutex_locked = true;
-    if(__atomic_load_n(&(sem->counter), __ATOMIC_ACQUIRE) == sem->max) {
+    if(atomic_load_explicit(&(sem->counter), memory_order_acquire) == sem->max) {
         res = EDEADLK;
         goto fsemaphore_post_error;
     } else {
-        __atomic_fetch_add(&(sem->counter), 1, __ATOMIC_ACQ_REL);
+        atomic_fetch_add_explicit(&(sem->counter), 1, memory_order_release);
 
         errno = 0;
         res = syscall(SYS_futex, &(sem->counter), FUTEX_WAKE_PRIVATE, 1);

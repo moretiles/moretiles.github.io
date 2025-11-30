@@ -10,7 +10,10 @@
         <main>
 
             <h1>Implementing a mutex and semaphore without pthreads</h1>
-            <p>This week, I decided to implement a thread pool and so spend a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
+            <aside>
+                <p><u>This article was updated on 11/30/2025 to use C11 atomics rather than GCC built-ins.</u></p>
+            </aside>
+            <p>This week, I decided to implement a thread pool and so spent a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
 
             <h2>What is a futex?</h2>
             <p>futexes are mutexes that are manipulated through lower overhead system calls compared to traditional mutexes. It seems like the term referred to a kind of fast mutex implemented on Linux, but, is now more general. If you're interested in the history and motivation, <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/">Bendersky has a great article I'd recommend</a>.</p>
@@ -19,7 +22,7 @@
             <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/futex_wait.man" }}</code></pre>
             <pre><code class="language-C">{{ pre "articles/mutex-and-semaphore-without-pthreads/futex_wake.man" }}</code></pre>
 
-            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE system call.</p>
+            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE operation.</p>
 
             <h2>Implementing a mutex</h2>
             <p>Suppose a mutex has the below api. Create, advise, init, deinit, and destroy are trivial. Lock and unlock are the interesting operations. Because FUTEX system calls expect the memory address used to be associated with a uint32 (unsigned 32 bit integer), the struct fmutex type is just a wrapper around that. The locked field itself should be treated as an atomic variable.</p>
