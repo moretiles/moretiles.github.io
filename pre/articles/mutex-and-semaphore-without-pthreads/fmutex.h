@@ -16,7 +16,7 @@
 typedef struct fmutex {
     // Linux FUTEX syscall requires a uint32_t*
     // So, use this uint32_t as a boolean
-    uint32_t locked;
+    _Atomic uint32_t locked;
 } Fmutex;
 
 // Allocates memory for and create

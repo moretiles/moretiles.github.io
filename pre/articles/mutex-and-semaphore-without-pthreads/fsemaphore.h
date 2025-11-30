@@ -17,7 +17,7 @@
 #define DERT_FSEMAPHORE 1
 typedef struct fsemaphore {
     Fmutex *mutex;
-    uint64_t counter;
+    _Atomic uint64_t counter;
     uint64_t max;
 } Fsemaphore;
 

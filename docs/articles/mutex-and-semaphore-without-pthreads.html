@@ -34,7 +34,10 @@
         <main>
 
             <h1>Implementing a mutex and semaphore without pthreads</h1>
-            <p>This week, I decided to implement a thread pool and so spend a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
+            <aside>
+                <p><u>This article was updated on 11/30/2025 to use C11 atomics rather than GCC built-ins.</u></p>
+            </aside>
+            <p>This week, I decided to implement a thread pool and so spent a lot of time remembering how to use pthreads. My impression of pthreads is that it works fairly well. Except for pthread_cond_t, the fact that there is no mutex that is wrapped in the data structure itself is annoying. As part of looking for better alternatives to pthread_cond_t, I ran into its lower-level counterpart, the futex.</p>
 
             <h2>What is a futex?</h2>
             <p>futexes are mutexes that are manipulated through lower overhead system calls compared to traditional mutexes. It seems like the term referred to a kind of fast mutex implemented on Linux, but, is now more general. If you're interested in the history and motivation, <a href="https://eli.thegreenplace.net/2018/basics-of-futexes/">Bendersky has a great article I'd recommend</a>.</p>
@@ -68,7 +71,7 @@ SYNOPSIS
        long syscall(SYS_futex, uint32_t *uaddr, FUTEX_WAKE, uint32_t val);
 </code></pre>
 
-            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE system call.</p>
+            <p>In short, FUTEX_WAIT suspends a thread until the value at a memory address no longer equals an expected value. It is not the case that a thread slept by FUTEX_WAIT wakes immediatly after a change. The programmer controls when wakes occur by using the FUTEX_WAKE operation.</p>
 
             <h2>Implementing a mutex</h2>
             <p>Suppose a mutex has the below api. Create, advise, init, deinit, and destroy are trivial. Lock and unlock are the interesting operations. Because FUTEX system calls expect the memory address used to be associated with a uint32 (unsigned 32 bit integer), the struct fmutex type is just a wrapper around that. The locked field itself should be treated as an atomic variable.</p>
@@ -91,7 +94,7 @@ SYNOPSIS
 typedef struct fmutex {
     // Linux FUTEX syscall requires a uint32_t*
     // So, use this uint32_t as a boolean
-    uint32_t locked;
+    _Atomic uint32_t locked;
 } Fmutex;
 
 // Allocates memory for and create
@@ -133,7 +136,10 @@ int fmutex_unlock(Fmutex *mutex);
 
             <p>We can implement the act of locking using an atomic compare and exchange in-place operation that asks to set mutex->locked to true if its current value is false otherwise fail. Failure leads to entry into a while that forces the FUTEX_WAIT_PRIVATE system call to put this thread to sleep and try again when woken. I dislike the use of errno for error checking, but am forced to use it in this case.</p>
 
-            <pre><code class="language-C">int fmutex_lock(Fmutex *mutex) {
+            <pre><code class="language-C">// lock mutex
+// forces calling thread to wait if currently locked
+// can lead to deadlock
+int fmutex_lock(Fmutex *mutex) {
     long res;
     uint32_t expected = false;
 
@@ -141,11 +147,12 @@ int fmutex_unlock(Fmutex *mutex);
         return EINVAL;
     }
 
-    while(!(__atomic_compare_exchange_n(&amp;(mutex-&gt;locked),
-                                        &amp;expected, true, false,
-                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))) {
+    while(!(atomic_compare_exchange_strong_explicit(&amp;(mutex-&gt;locked),
+            &amp;expected, true,
+            memory_order_acq_rel,
+            memory_order_acquire))) {
         // want to perform FUTEX_WAIT_PRIVATE syscall
-        // Successful result (meaning sem-&gt;counter != 0) can be signaled in two ways
+        // Successful result (sem-&gt;counter != 0) can be signaled in two ways
         // First, syscall itself returns 0 if waited then awaken
         // Two, syscall failed with -1 as sem-&gt;counter was not 0, errno is EAGAIN
 
@@ -166,7 +173,9 @@ int fmutex_unlock(Fmutex *mutex);
 
             <p>Unlocking is even simpler. An atomic compare exchange operation is required, however, unlock should only be used when the mutex is in a locked state. A wake message is broadcast on completion to at most one client. Thankfully, FUTEX_WAKE_PRIVATE does not force you to probe the errno variable to ensure success.</p>
 
-            <pre><code class="language-C">int fmutex_unlock(Fmutex *mutex) {
+            <pre><code class="language-C">// unlock mutex
+// fails if mutex is already unlocked
+int fmutex_unlock(Fmutex *mutex) {
     long res;
     uint32_t expected = true;
     bool success;
@@ -174,9 +183,10 @@ int fmutex_unlock(Fmutex *mutex);
         return EINVAL;
     }
 
-    success = __atomic_compare_exchange_n(&amp;(mutex-&gt;locked),
-                                          &amp;expected, false, false,
-                                          __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    success = atomic_compare_exchange_strong_explicit(&amp;(mutex-&gt;locked),
+              &amp;expected, false,
+              memory_order_acq_rel,
+              memory_order_acquire);
     if(success) {
         errno = 0;
         res = syscall(SYS_futex, &amp;(mutex-&gt;locked), FUTEX_WAKE_PRIVATE, 1);
@@ -215,7 +225,7 @@ int fmutex_unlock(Fmutex *mutex);
 #define DERT_FSEMAPHORE 1
 typedef struct fsemaphore {
     Fmutex *mutex;
-    uint64_t counter;
+    _Atomic uint64_t counter;
     uint64_t max;
 } Fsemaphore;
 
@@ -276,8 +286,8 @@ int fsemaphore_reset(Fsemaphore *sem);
             goto fsemaphore_wait_error;
         }
         mutex_locked = true;
-        if(__atomic_load_n(&amp;(sem-&gt;counter), __ATOMIC_ACQUIRE) &gt; 0) {
-            __atomic_fetch_sub(&amp;(sem-&gt;counter), 1, __ATOMIC_ACQ_REL);
+        if(atomic_load_explicit(&amp;(sem-&gt;counter), memory_order_acquire) &gt; 0) {
+            atomic_fetch_sub_explicit(&amp;(sem-&gt;counter), 1, memory_order_release);
             decremented = true;
         } else {
             res = fmutex_unlock(sem-&gt;mutex);
@@ -326,11 +336,11 @@ fsemaphore_wait_error:
         goto fsemaphore_post_error;
     }
     mutex_locked = true;
-    if(__atomic_load_n(&amp;(sem-&gt;counter), __ATOMIC_ACQUIRE) == sem-&gt;max) {
+    if(atomic_load_explicit(&amp;(sem-&gt;counter), memory_order_acquire) == sem-&gt;max) {
         res = EDEADLK;
         goto fsemaphore_post_error;
     } else {
-        __atomic_fetch_add(&amp;(sem-&gt;counter), 1, __ATOMIC_ACQ_REL);
+        atomic_fetch_add_explicit(&amp;(sem-&gt;counter), 1, memory_order_release);
 
         errno = 0;
         res = syscall(SYS_futex, &amp;(sem-&gt;counter), FUTEX_WAKE_PRIVATE, 1);
